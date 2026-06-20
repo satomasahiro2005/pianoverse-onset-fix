@@ -4,11 +4,16 @@ IK Multimedia **Pianoverse**（サンプリング・ピアノ音源）の **note
 **音声データそのもの**から究明し、**サンプルの頭を切り揃えて遅延を最小化＋ばらつきを消す**ための
 調査記録とツール一式。
 
-YF3 Close マイクで実測した結果、ヘッドトリムにより
-**発音遅延 9.3 ms → 1.6 ms、ばらつき σ 9.0 ms → 0.25 ms（−97%）** を達成。
+YF3 Close マイクで実測・適用した結果：**発音遅延 9.3 → 2.3 ms（整列した本体は σ 9.0 → 0.27 ms）**、
+さらに**音量の系統ばらつき std 1.49 → 0.04 dB**。
 
-> ステータス: **ローカル研究用**（未公開）。対象は購入済みライブラリの個人利用・解析のみ。
+> **Disclaimer / 注意**: このリポジトリに **Pianoverse のサンプル音声は一切含まれない**
+> （解析コード・計測データ・図のみ）。利用には各自の**正規ライセンス版**が必要。
+> 本研究は相互運用・解析目的であり IK Multimedia とは無関係。各自のライセンス/EULA を尊重すること。
 > 図は `assets/make_figures.py`（matplotlib）が実測データから生成。
+>
+> *No Pianoverse sample audio is included here — analysis code, measurements and figures only.
+> You need your own licensed copy. Research / interoperability; not affiliated with IK Multimedia.*
 
 ---
 

@@ -1,6 +1,8 @@
-# binary sample containers — never commit licensed sample data
+# binary sample containers / raw audio — never commit licensed sample data
 *.pak
 *.wav
+# raw PCM excerpt of the sample (regenerate locally; kept out of the public repo)
+waveform_a3.csv
 
 # python
 __pycache__/
