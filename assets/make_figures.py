@@ -214,9 +214,8 @@ def fig_pak_format():
           [("char  path[]  \\0", "NUL-terminated relative path"),
            ("uint64  dataOffset", "absolute byte offset of this WAV"),
            ("uint64  dataSize", "byte length of this WAV")])
-    ax.annotate("repeat × N", xy=(90, 47), xytext=(96, 59), rotation=90,
-                fontsize=9, color=BLUE, va="center", ha="center",
-                arrowprops=dict(arrowstyle="-[, widthB=4.4", color=BLUE, lw=1.2))
+    ax.plot([90.5, 92, 92, 90.5], [66, 66, 45.5, 45.5], color=BLUE, lw=1.3)
+    ax.text(93, 55.75, "× N", color=BLUE, fontsize=10, va="center", ha="left")
 
     block(10, 12, 80, 28, "white", TEAL, "PAYLOAD  —  standard RIFF/WAVE, concatenated",
           [("WAV 0 | WAV 1 | WAV 2 | … | WAV N-1", "contiguous, in TOC order"),
