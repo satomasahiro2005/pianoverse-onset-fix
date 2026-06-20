@@ -26,6 +26,7 @@ the systematic note-to-note deviation from **1.49 dB to 0.04 dB**.
 - [Usage](#usage)
 - [Applying it to Pianoverse](#applying-it-to-pianoverse)
 - [Results](#results)
+- [Benchmark (DiP-Bench)](#benchmark-dip-bench)
 - [Repository layout](#repository-layout)
 - [Limitations](#limitations)
 - [Disclaimer](#disclaimer)
@@ -226,6 +227,24 @@ Measured before and after on YF3 Close 1 (every octave's A × 14 velocities × r
 - Per-note volume deviation: **1.49 dB → 0.04 dB**.
 
 The same pipeline has been applied to the full YF3 Close set (Close 1–12).
+
+## Benchmark (DiP-Bench)
+
+Verified end to end with **DiP-Bench v0.05** (Digital Piano Benchmark, by Frieve) — the full
+MIDI-in to audio-out round trip through REAPER (Pianoverse YF3 Close, MOTU M2 ASIO @ 64
+samples, reverb off):
+
+![DiP-Bench before vs after](assets/bench_dipbench.png)
+
+| | Latency (avg) | Latency σ (keys) | Latency σ (velocity) | Volume σ |
+|---|---|---|---|---|
+| Before (original) | 8.3 ms | 3.0 ms | 1.6 ms | 2.46 dB |
+| After (head-trim) | **3.6 ms** | **0.6 ms** | **0.3 ms** | 2.24 dB |
+
+The trim more than halves the round-trip latency and cuts the key-to-key spread by ~80%. The
+remaining 3.6 ms is the ASIO buffer + engine floor, which the trim can't remove. The volume σ
+here is dominated by the natural low-to-high register trend (kept on purpose) — the per-note
+pass only flattens the local note-to-note bumps, so it barely moves this single global number.
 
 ## Repository layout
 
