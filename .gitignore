@@ -1,0 +1,11 @@
+# binary sample containers — never commit licensed sample data
+*.pak
+*.wav
+
+# python
+__pycache__/
+*.pyc
+
+# scratch
+*.tmp
+test_out.*
