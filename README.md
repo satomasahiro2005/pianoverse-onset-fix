@@ -230,9 +230,10 @@ The same pipeline has been applied to the full YF3 Close set (Close 1–12).
 
 ## Benchmark (DiP-Bench)
 
-Verified end to end with **DiP-Bench v0.05** (Digital Piano Benchmark, by Frieve) — the full
-MIDI-in to audio-out round trip through REAPER (Pianoverse YF3 Close, MOTU M2 ASIO @ 64
-samples, reverb off):
+Verified end to end with **[DiP-Bench](https://github.com/Frieve-A/dipbench) v0.05** (Digital
+Piano Benchmark, by Frieve) — the full MIDI-in to audio-out round trip through REAPER
+(Pianoverse YF3 Close, reverb off, MIDI looped back via Windows MIDI Services, MOTU M2 ASIO
+@ 64 samples):
 
 ![DiP-Bench before vs after](assets/bench_dipbench.png)
 
