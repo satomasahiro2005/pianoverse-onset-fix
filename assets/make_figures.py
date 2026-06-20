@@ -149,11 +149,12 @@ def fig_before_after():
     a["ona"] = pd.to_numeric(a["T_m20ms"], errors="coerce")
     m = pd.merge(b[["Name", "onb"]], a[["Name", "ona"]], on="Name").dropna()
     onb, ona = m["onb"].values, m["ona"].values
+    bulk = ona[ona < 5]                      # aligned notes (rest hit the soft-note cap)
 
     fig, (axh, axs) = plt.subplots(1, 2, figsize=(10.2, 4.3))
     bins = np.linspace(0, max(onb.max(), 12), 40)
     axh.hist(onb, bins=bins, color=GRAY, alpha=0.55, label=f"before  (mean {onb.mean():.1f} ± {onb.std():.1f} ms)")
-    axh.hist(ona, bins=bins, color=TEAL, alpha=0.75, label=f"after   (mean {ona.mean():.1f} ± {ona.std():.1f} ms)")
+    axh.hist(ona, bins=bins, color=TEAL, alpha=0.75, label=f"after bulk  (mean {bulk.mean():.2f} ± {bulk.std():.2f} ms, n={len(bulk)})")
     axh.axvline(onb.mean(), color=GRAY, ls="--", lw=1.2)
     axh.axvline(ona.mean(), color=TEAL, ls="--", lw=1.2)
     axh.set_xlabel("onset (−20 dB rel. peak) [ms]")
@@ -174,9 +175,8 @@ def fig_before_after():
     axs.legend(frameon=False, fontsize=9)
     axs.grid(True)
 
-    sd_drop = (1 - ona.std() / onb.std()) * 100
-    fig.suptitle(f"Head-trim result — delay {onb.mean():.1f}→{ona.mean():.1f} ms, "
-                 f"spread (σ) cut {sd_drop:.0f}%  (Close 1, {len(m)} samples)",
+    fig.suptitle(f"Head-trim — delay {onb.mean():.1f}→{ona.mean():.1f} ms; aligned bulk "
+                 f"σ {bulk.std():.2f} ms ({len(bulk)}/{len(ona)}), {len(ona)-len(bulk)} soft notes preserved",
                  fontsize=12, fontweight="bold", y=1.02)
     fig.tight_layout()
     out = os.path.join(HERE, "onset_before_after.png")

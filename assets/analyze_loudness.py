@@ -68,6 +68,20 @@ def main():
     print("\nquietest sticking-out notes:")
     print(pernote.sort_values("mean").head(6)[["Note", "mean", "std"]].round(2).to_string(index=False))
 
+    # ---- per-note gain table: correct the systematic bump, headroom-safe ----
+    peak = df.groupby("Note")["PeakDb"].max()
+    gtab = []
+    for _, row in pernote.iterrows():
+        note = row["Note"]
+        desired = float(np.clip(-row["mean"], -6, 6))   # pull toward the trend
+        if desired > 0:                                  # boost: clamp to headroom
+            desired = min(desired, -float(peak[note]) - 0.5)
+        gtab.append({"Note": note, "GainDb": round(desired, 2)})
+    pd.DataFrame(gtab).to_csv(os.path.join(ROOT, "note_gains.csv"), index=False)
+    gv = [g["GainDb"] for g in gtab]
+    print(f"\nwrote note_gains.csv ({len(gtab)} notes), gain {min(gv):.2f}..{max(gv):.2f} dB, "
+          f"mean|g| {np.mean(np.abs(gv)):.2f} dB")
+
     # ---- figure ----
     fig, (axc, axb) = plt.subplots(1, 2, figsize=(10.4, 4.3))
     velshow = sorted(g["Vel"].unique())[len(g["Vel"].unique()) // 2]  # a mid velocity
