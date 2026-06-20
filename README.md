@@ -28,6 +28,7 @@ the systematic note-to-note deviation from **1.49 dB to 0.04 dB**.
 - [Results](#results)
 - [Repository layout](#repository-layout)
 - [Limitations](#limitations)
+- [Disclaimer](#disclaimer)
 - [License](#license)
 
 ## Background
@@ -248,6 +249,25 @@ The same pipeline has been applied to the full YF3 Close set (Close 1–12).
 - The softest, highest notes are only partially aligned by design (the `--maxtrim` cap
   protects their natural slow attack).
 - `preroll`, `maxtrim` and the correction strength are reasonable defaults, not tuned by ear.
+
+## Disclaimer
+
+This is an independent research and interoperability project. It is **not affiliated with,
+authorized by, or endorsed by IK Multimedia**, and "Pianoverse" and "IK Multimedia" are
+trademarks of their respective owner. There is no intent to infringe anyone's rights — the
+goal is to study and improve the playback timing of a library you already own.
+
+- **No sample content is included or redistributed.** This repository holds only analysis
+  code, numerical measurements, and figures. You must own a valid Pianoverse license to use
+  any of it.
+- **No copy protection is circumvented.** The `.pak` sample containers are not encrypted; the
+  format was understood by observing the files on disk, purely as an interoperability and
+  educational exercise. The encrypted `.pvsp` presets are never read or modified.
+- **It only edits files on your own machine** that you have licensed, and always keeps the
+  originals as `.orig` backups.
+
+Use at your own risk and in accordance with your Pianoverse license/EULA. If IK Multimedia
+requests it, this repository will be taken down.
 
 ## License
 
