@@ -284,9 +284,68 @@ def fig_waveform():
     print("wrote", out)
 
 
+def fig_latency_budget():
+    """Purpose figure: ASIO buffer tuning bottoms out, and the ~8 ms baked into
+    each sample is beyond its reach. Removing it buys back latency that a complex
+    monitoring route (Voicemeeter Banana feeding Discord two streams) adds.
+    End-to-end numbers from DiP-Bench (MOTU M2, ASIO @ 64 smp): original 8.3 ms,
+    trimmed 3.6 ms  =>  floor ~3.6 ms, removable sample head ~4.7 ms.
+    The routing block is illustrative (depends on the virtual-device buffer)."""
+    FLOOR, SAMPLE, ROUTING = 3.6, 4.7, 5.0
+    GHOST = "#fca5a5"
+    rows = [
+        ("direct ASIO\noriginal samples",
+         [("ASIO buffer + engine", FLOOR, GRAY, None),
+          ("sample head (baked-in)", SAMPLE, CORAL, None)]),
+        ("+ Voicemeeter route\noriginal samples",
+         [("ASIO buffer + engine", FLOOR, GRAY, None),
+          ("routing (Voicemeeter / Discord)", ROUTING, AMBER, "////"),
+          ("sample head (baked-in)", SAMPLE, CORAL, None)]),
+        ("+ Voicemeeter route\ntrimmed samples",
+         [("ASIO buffer + engine", FLOOR, GRAY, None),
+          ("routing (Voicemeeter / Discord)", ROUTING, AMBER, "////")]),
+    ]
+    fig, ax = plt.subplots(figsize=(9.8, 4.3))
+    ypos = [2, 1, 0]
+    seen = set()
+    for y, (_name, segs) in zip(ypos, rows):
+        x = 0.0
+        for label, w, color, hatch in segs:
+            lab = label if label not in seen else None
+            seen.add(label)
+            ax.barh(y, w, left=x, height=0.5, color=color, alpha=0.9,
+                    edgecolor="white", linewidth=1.0, hatch=hatch, label=lab, zorder=3)
+            x += w
+        ax.text(x + 0.2, y, f"{x:.1f} ms", va="center", ha="left",
+                fontsize=10.5, fontweight="bold", color=INK, zorder=4)
+    # ghost of the removed sample head on the trimmed bar
+    ax.barh(0, SAMPLE, left=FLOOR + ROUTING, height=0.5, facecolor="none",
+            edgecolor=GHOST, lw=1.2, ls=(0, (3, 2)), zorder=2)
+    ax.annotate("head-trim removes ~4.7 ms", xy=(FLOOR + ROUTING + SAMPLE / 2, 0.0),
+                xytext=(FLOOR + ROUTING + SAMPLE / 2, -0.66), ha="center", fontsize=9,
+                color="#b91c1c", arrowprops=dict(arrowstyle="->", color=GHOST, lw=1.1))
+    ax.axvline(FLOOR + SAMPLE, color=INK, ls=(0, (4, 3)), lw=1.1, alpha=0.55, zorder=1)
+    ax.text(FLOOR + SAMPLE - 0.15, 1.5, "original direct latency", color=INK,
+            fontsize=8.5, ha="right", va="center", alpha=0.8)
+    ax.set_yticks(ypos)
+    ax.set_yticklabels([r[0] for r in rows], fontsize=9.5)
+    ax.set_ylim(-0.95, 2.75)
+    ax.set_xlim(0, 14.8)
+    ax.set_xlabel("end-to-end monitoring latency (ms)")
+    ax.set_title("Monitoring latency budget — trimming the sample head buys back routing headroom")
+    ax.grid(axis="x")
+    ax.legend(frameon=False, fontsize=8.5, loc="upper right")
+    fig.tight_layout()
+    out = os.path.join(HERE, "latency_budget.png")
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     fig_waveform()
     fig_structure()
     fig_dependence()
     fig_before_after()
     fig_pak_format()
+    fig_latency_budget()
