@@ -342,6 +342,47 @@ def fig_latency_budget():
     print("wrote", out)
 
 
+def fig_overboost():
+    """High-note over-boost and the headroom fix. The per-note gain is sized to
+    match the SUSTAIN (body loudness), but a quiet note has a peaky attack, so
+    over-boosting it pushes the attack near 0 dBFS. Widening the headroom margin
+    from 0.5 to 3 dB keeps the body matched while the attack stays safe.
+    Measured attack-peak / sustain-RMS (dBFS), F6 (= data F5) vs neighbour G5, v127."""
+    groups = ["original\n(no gain)", "old gain\n+5.7 dB", "new gain\n+3.49 dB", "G5 neighbour\n(live)"]
+    attack = [-6.5, -0.8, -3.0, -4.6]
+    sustain = [-22.0, -16.3, -18.5, -18.6]
+    x = np.arange(len(groups)); w = 0.38
+    fig, ax = plt.subplots(figsize=(9.4, 4.7))
+    ax.axhspan(-1.5, 0.0, color=CORAL, alpha=0.08, zorder=0)
+    ax.axhline(0, color="#b91c1c", lw=1.4, zorder=1)
+    ax.text(len(groups) - 0.55, 0.25, "0 dBFS (clip)", color="#b91c1c", ha="right", va="bottom", fontsize=9)
+    b1 = ax.bar(x - w / 2, attack, w, color=CORAL, alpha=0.9, label="attack peak", zorder=3)
+    b2 = ax.bar(x + w / 2, sustain, w, color=TEAL, alpha=0.85, label="sustain RMS (body)", zorder=3)
+    for b in list(b1) + list(b2):
+        v = b.get_height()
+        ax.text(b.get_x() + b.get_width() / 2, v - 0.5, f"{v:.1f}", ha="center", va="top",
+                fontsize=8.5, color=INK, zorder=4)
+    # callouts placed directly under the relevant attack bars (no arrows across bars)
+    ax.text(1 - w / 2, -2.7, "over-boosted\n(near clip)", ha="center", va="top",
+            fontsize=9, color="#92600a", zorder=4)
+    ax.text(2 - w / 2, -4.9, "attack\nkept safe", ha="center", va="top",
+            fontsize=9, color="#0f766e", zorder=4)
+    # body matches neighbour
+    ax.plot([2 + w / 2, 3 + w / 2], [-18.5, -18.6], color=GRAY, ls=(0, (3, 2)), lw=1.2, zorder=2)
+    ax.text(2.5 + w / 2, -17.4, "body matches\nneighbour", ha="center", va="bottom", fontsize=8.5, color=GRAY)
+    ax.set_xticks(x); ax.set_xticklabels(groups, fontsize=9.5)
+    ax.set_ylabel("level (dBFS)")
+    ax.set_ylim(-25, 2.5)
+    ax.set_title("High-note over-boost — the gain matched the body but pushed the attack to clip  (F6 / data F5, v127)")
+    ax.legend(frameon=False, fontsize=9.5, loc="lower right")
+    ax.grid(axis="y")
+    fig.tight_layout()
+    out = os.path.join(HERE, "overboost_fix.png")
+    fig.savefig(out, bbox_inches="tight")
+    plt.close(fig)
+    print("wrote", out)
+
+
 if __name__ == "__main__":
     fig_waveform()
     fig_structure()
@@ -349,3 +390,4 @@ if __name__ == "__main__":
     fig_before_after()
     fig_pak_format()
     fig_latency_budget()
+    fig_overboost()

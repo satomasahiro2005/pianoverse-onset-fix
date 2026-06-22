@@ -74,8 +74,8 @@ def main():
     for _, row in pernote.iterrows():
         note = row["Note"]
         desired = float(np.clip(-row["mean"], -6, 6))   # pull toward the trend
-        if desired > 0:                                  # boost: clamp to headroom
-            desired = min(desired, -float(peak[note]) - 0.5)
+        if desired > 0:                                  # boost: clamp to headroom (keep 3 dB margin so peaky notes' attacks don't overshoot)
+            desired = min(desired, -float(peak[note]) - 3.0)
         gtab.append({"Note": note, "GainDb": round(desired, 2)})
     pd.DataFrame(gtab).to_csv(os.path.join(ROOT, "note_gains.csv"), index=False)
     gv = [g["GainDb"] for g in gtab]
