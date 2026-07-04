@@ -15,8 +15,8 @@ def num(s):
 
 
 # ---------- onset ----------
-b = pd.read_csv(os.path.join(R, "onset_close1_before.csv"))
-a = pd.read_csv(os.path.join(R, "onset_close1_after.csv"))
+b = pd.read_csv(os.path.join(R, "data", "onset_close1_before.csv"))
+a = pd.read_csv(os.path.join(R, "data", "onset_close1_after.csv"))
 b["o"] = num(b["T_m20ms"]); a["o"] = num(a["T_m20ms"])
 m = b[["Name", "o"]].merge(a[["Name", "o"]], on="Name", suffixes=("_b", "_a")).dropna()
 print("=== ONSET (Close 1, %d samples) ===" % len(m))
@@ -25,8 +25,8 @@ print("after   mean %.2f  sd %.2f  max %.2f ms  (max-trim cap keeps soft notes n
       % (m.o_a.mean(), m.o_a.std(), m.o_a.max()))
 
 # ---------- loudness ----------
-allc = pd.read_csv(os.path.join(R, "loudness_close_all.csv"))
-aft = pd.read_csv(os.path.join(R, "loudness_close1_after.csv"))
+allc = pd.read_csv(os.path.join(R, "data", "loudness_close_all.csv"))
+aft = pd.read_csv(os.path.join(R, "data", "loudness_close1_after.csv"))
 gains = pd.read_csv(os.path.join(R, "note_gains.csv")).set_index("Note")["GainDb"]
 allc["pk"] = allc["Note"].map(note_key)
 
@@ -49,7 +49,7 @@ aft_resid = add_resid(aft).groupby("Note")["resid"].mean()
 bef_rms = allc[isA].groupby("Note").RmsDb.mean()
 aft_rms = aft.groupby("Note").RmsDb.mean()
 
-print("\n=== LOUDNESS — A notes (Close 1) ===")
+print("\n=== LOUDNESS - A notes (Close 1) ===")
 print("%-5s %8s %8s %7s %8s %8s" % ("note", "gainDb", "dRMS", "->ok?", "resid_b", "resid_a"))
 for n in sorted(bef_rms.index, key=note_key):
     d = aft_rms[n] - bef_rms[n]; g = gains.get(n, 0)

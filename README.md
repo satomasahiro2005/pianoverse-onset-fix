@@ -6,6 +6,8 @@ A tool that removes the ~8 ms note-onset delay baked into IK Multimedia **Pianov
 samples, and evens out its note-to-note volume — by editing the `.pak` sample containers
 directly, leaving the plugin, presets, mic mixes and velocity mapping untouched.
 
+![Original vs head-trimmed sample onset](assets/onset_waveform.png)
+
 Measured on the YF3 Close mic, the head-trim brings the onset delay from **9.3 ms down to
 2.3 ms** (the aligned notes go from σ 9.0 ms to 0.27 ms), and the per-note volume pass cuts
 the deviation from the keyboard's smooth loudness trend from **σ 2.14 dB to 1.42 dB**
@@ -14,7 +16,7 @@ Coincident) have been processed this way.
 
 **Intended use.** This is aimed at *playing* — trimming the dead head cuts the latency you feel while monitoring. Each mic position is processed independently (its own onset, aligned to the common preroll), so the positions come out onset-aligned rather than keeping their original inter-mic offset (the Coincident mic sits ~1.5 ms behind Close, from the extra distance). If you blend mic positions in a mix and want that spacing back, it's a one-track nudge in your DAW.
 
-The bundled CSVs and gain tables are the measurements from my YF3 run, kept as sample
+The bundled measurement CSVs (`data/`) and gain tables are from my YF3 run, kept as sample
 data. Every one of them can be regenerated on your own copy with the included scripts —
 see the [walkthrough](#walkthrough-processing-your-own-copy).
 
@@ -57,7 +59,7 @@ fixes the delay while keeping everything else about the instrument intact.
 ## What the delay actually is
 
 Onset times were measured across the YF3 Close mic for every key and all 14 velocity layers
-(the bundled `onset.csv` is that run).
+(the bundled `data/onset.csv` is that run).
 
 In the raw waveform, the note simply stays quiet for the first several milliseconds after
 note-on (top: original; bottom: after the head-trim):
@@ -162,7 +164,7 @@ too slow in PowerShell, so the full pipeline is in numpy):
 ## Volume correction
 
 RMS was measured per sample across the YF3 Close keyboard, every key × 14 velocities
-(rr1 + rr2, 2258 samples; the bundled `loudness_close_all.csv`):
+(rr1 + rr2, 2258 samples; the bundled `data/loudness_close_all.csv`):
 
 ![Note-to-note volume variation](assets/loudness_variation.png)
 
@@ -214,7 +216,7 @@ $paks  = Get-ChildItem "$notes\Close *\*.pak" |
 
 # 1. measure loudness (all samples, all round-robins) and build the per-note gain table
 . .\loudness-sweep.ps1 -Paks $paks -OutCsv my_loudness.csv -RrFilter ''
-python assets/analyze_loudness.py --csv my_loudness.csv --out my_gains.csv --label "YF3 Close"
+python analyze_loudness.py --csv my_loudness.csv --out my_gains.csv --label "YF3 Close"
 
 # 2. trim + gain every pak (writes .trim.pak next to the original; nothing is overwritten)
 foreach ($p in $paks) {
@@ -228,7 +230,7 @@ foreach ($p in $paks) {
 }
 
 # 4. verify: keyboard-wide loudness, original vs processed
-python assets/loudness_before_after.py $notes --mic Close
+python loudness_before_after.py $notes --mic Close
 ```
 
 Notes on the steps:
@@ -265,7 +267,7 @@ Notes on the steps:
 ## Results
 
 Measured before and after on the full YF3 Close set, every key × 14 velocity layers ×
-round-robins (the bundled `onset*.csv` / `loudness*.csv` are these runs):
+round-robins (the bundled CSVs in `data/` are these runs):
 
 ![Before / after head-trim](assets/onset_before_after.png)
 
@@ -303,16 +305,17 @@ pass only flattens the local note-to-note bumps, so it barely moves this single 
 | File | Purpose |
 |---|---|
 | `repack.py` | Main tool: onset detection + trim (with cap) + fade + per-note gain + IKMPAK rebuild (numpy). |
+| `analyze_loudness.py` | Turns a loudness sweep into the per-note gain table (and a figure). |
+| `loudness_before_after.py` | Keyboard-wide before/after loudness verification figure. |
+| `make_figures.py` | Regenerates the README figures from the bundled data. |
+| `verify_close1.py` | Example verification run against the bundled Close 1 data. |
+| `onset-sweep.ps1`, `loudness-sweep.ps1` | Batch onset / loudness measurement to CSV. |
 | `repack.ps1` | Trim-only PowerShell version, kept as a reference implementation. |
 | `pak.ps1` | `.pak` TOC parser, WAV chunk parsing, onset helpers. |
-| `onset-sweep.ps1`, `loudness-sweep.ps1` | Batch onset / loudness measurement to CSV. |
-| `assets/analyze_loudness.py` | Turns a loudness sweep into the per-note gain table (and a figure). |
-| `assets/loudness_before_after.py` | Keyboard-wide before/after loudness verification figure. |
-| `assets/make_figures.py` | Regenerates the README figures from the bundled CSVs. |
-| `verify_close1.py` | Example verification run against the bundled Close 1 CSVs. |
 | `find-locker.ps1` | Shows which process is holding a `.pak` open when a swap fails. |
 | `note_gains.csv`, `note_gains_coincident.csv` | Per-note gain tables from my YF3 run (Close / Coincident). |
-| other `*.csv` | Sample measurement data from the YF3 runs (no audio) — regenerate with the sweeps. |
+| `data/` | Sample measurement data from the YF3 runs (no audio) — regenerate with the sweeps. |
+| `assets/` | Figures used by this README. |
 
 ## Limitations
 

@@ -2,12 +2,14 @@
 """Generate the research figures (PNG) for the Pianoverse onset study.
 
 Data sources (produced by the PowerShell tools):
-  ../onset.csv                  onset sweep over YF3 Close, 88 keys x 14 vel (rr1)
-  ../onset_close1_before.csv    onset(-20dB) per sample, Close 1, original pak
-  ../onset_close1_after.csv     onset(-20dB) per sample, Close 1, head-trimmed pak
+  data/onset.csv                 onset sweep over YF3 Close, 88 keys x 14 vel (rr1)
+  data/onset_close1_before.csv   onset(-20dB) per sample, Close 1, original pak
+  data/onset_close1_after.csv    onset(-20dB) per sample, Close 1, head-trimmed pak
+  data/waveform_a3.csv           optional raw A3 excerpt (sample audio, so not in the
+                                 repo); the waveform figure is skipped if it's absent
 
 Figure labels are English on purpose (the embedded matplotlib font has no CJK
-glyphs); the prose explanation lives in the Japanese README.
+glyphs); the prose explanation lives in the README.
 """
 import os
 import numpy as np
@@ -17,8 +19,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, FancyArrowPatch
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.path.dirname(os.path.abspath(__file__))
+DATA = os.path.join(ROOT, "data")
+ASSETS = os.path.join(ROOT, "assets")
 
 BLUE, TEAL, AMBER, CORAL, GRAY, INK = "#2563eb", "#0d9488", "#d97706", "#dc2626", "#64748b", "#1f2933"
 
@@ -81,14 +84,14 @@ def fig_structure():
     ax.grid(axis="y")
     ax.legend(frameon=False, fontsize=9.5, loc="lower right")
     fig.tight_layout()
-    out = os.path.join(HERE, "onset_structure.png")
+    out = os.path.join(ASSETS, "onset_structure.png")
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)
 
 
 def fig_dependence():
-    df = pd.read_csv(os.path.join(ROOT, "onset.csv"))
+    df = pd.read_csv(os.path.join(DATA, "onset.csv"))
     df["onset"] = pd.to_numeric(df["T_m20ms"], errors="coerce")
     df = df.dropna(subset=["onset"])
     fig, (axv, axp) = plt.subplots(1, 2, figsize=(10.2, 4.3))
@@ -132,15 +135,15 @@ def fig_dependence():
     fig.suptitle("Why it sounds uneven: the baked-in onset varies by velocity and pitch",
                  fontsize=12, fontweight="bold", y=1.02)
     fig.tight_layout()
-    out = os.path.join(HERE, "onset_dependence.png")
+    out = os.path.join(ASSETS, "onset_dependence.png")
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)
 
 
 def fig_before_after():
-    bp = os.path.join(ROOT, "onset_close1_before.csv")
-    ap = os.path.join(ROOT, "onset_close1_after.csv")
+    bp = os.path.join(DATA, "onset_close1_before.csv")
+    ap = os.path.join(DATA, "onset_close1_after.csv")
     if not (os.path.exists(bp) and os.path.exists(ap)):
         print("skip before/after (csv not found yet)")
         return
@@ -179,7 +182,7 @@ def fig_before_after():
                  f"σ {bulk.std():.2f} ms ({len(bulk)}/{len(ona)}), {len(ona)-len(bulk)} soft notes preserved",
                  fontsize=12, fontweight="bold", y=1.02)
     fig.tight_layout()
-    out = os.path.join(HERE, "onset_before_after.png")
+    out = os.path.join(ASSETS, "onset_before_after.png")
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)
@@ -226,7 +229,7 @@ def fig_pak_format():
     ax.text(50, 99, "IKMPAK (.pak) container layout", ha="center", fontsize=14, fontweight="bold", color="#1e3a5f")
 
     fig.tight_layout()
-    out = os.path.join(HERE, "pak_format.png")
+    out = os.path.join(ASSETS, "pak_format.png")
     fig.savefig(out, bbox_inches="tight", facecolor="white")
     plt.close(fig)
     print("wrote", out)
@@ -241,7 +244,7 @@ def _onset_ms(sig, t, frac=0.12, win=12):
 
 def fig_waveform():
     """Wide linear-amplitude waveform: the onset delay is visible to the eye."""
-    csv = os.path.join(ROOT, "waveform_a3.csv")
+    csv = os.path.join(DATA, "waveform_a3.csv")
     if not os.path.exists(csv):
         print("skip waveform (csv not found)")
         return
@@ -278,65 +281,7 @@ def fig_waveform():
     fig.suptitle("Onset delay is in the audio data  (YF3 Close · A3 · v127)",
                  fontsize=13, fontweight="bold", y=0.99)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
-    out = os.path.join(HERE, "onset_waveform.png")
-    fig.savefig(out, bbox_inches="tight")
-    plt.close(fig)
-    print("wrote", out)
-
-
-def fig_latency_budget():
-    """Purpose figure: ASIO buffer tuning bottoms out, and the ~8 ms baked into
-    each sample is beyond its reach. Removing it buys back latency that a complex
-    monitoring route (Voicemeeter Banana feeding Discord two streams) adds.
-    End-to-end numbers from DiP-Bench (MOTU M2, ASIO @ 64 smp): original 8.3 ms,
-    trimmed 3.6 ms  =>  floor ~3.6 ms, removable sample head ~4.7 ms.
-    The routing block is illustrative (depends on the virtual-device buffer)."""
-    FLOOR, SAMPLE, ROUTING = 3.6, 4.7, 5.0
-    GHOST = "#fca5a5"
-    rows = [
-        ("direct ASIO\noriginal samples",
-         [("ASIO buffer + engine", FLOOR, GRAY, None),
-          ("sample head (baked-in)", SAMPLE, CORAL, None)]),
-        ("+ Voicemeeter route\noriginal samples",
-         [("ASIO buffer + engine", FLOOR, GRAY, None),
-          ("routing (Voicemeeter / Discord)", ROUTING, AMBER, "////"),
-          ("sample head (baked-in)", SAMPLE, CORAL, None)]),
-        ("+ Voicemeeter route\ntrimmed samples",
-         [("ASIO buffer + engine", FLOOR, GRAY, None),
-          ("routing (Voicemeeter / Discord)", ROUTING, AMBER, "////")]),
-    ]
-    fig, ax = plt.subplots(figsize=(9.8, 4.3))
-    ypos = [2, 1, 0]
-    seen = set()
-    for y, (_name, segs) in zip(ypos, rows):
-        x = 0.0
-        for label, w, color, hatch in segs:
-            lab = label if label not in seen else None
-            seen.add(label)
-            ax.barh(y, w, left=x, height=0.5, color=color, alpha=0.9,
-                    edgecolor="white", linewidth=1.0, hatch=hatch, label=lab, zorder=3)
-            x += w
-        ax.text(x + 0.2, y, f"{x:.1f} ms", va="center", ha="left",
-                fontsize=10.5, fontweight="bold", color=INK, zorder=4)
-    # ghost of the removed sample head on the trimmed bar
-    ax.barh(0, SAMPLE, left=FLOOR + ROUTING, height=0.5, facecolor="none",
-            edgecolor=GHOST, lw=1.2, ls=(0, (3, 2)), zorder=2)
-    ax.annotate("head-trim removes ~4.7 ms", xy=(FLOOR + ROUTING + SAMPLE / 2, 0.0),
-                xytext=(FLOOR + ROUTING + SAMPLE / 2, -0.66), ha="center", fontsize=9,
-                color="#b91c1c", arrowprops=dict(arrowstyle="->", color=GHOST, lw=1.1))
-    ax.axvline(FLOOR + SAMPLE, color=INK, ls=(0, (4, 3)), lw=1.1, alpha=0.55, zorder=1)
-    ax.text(FLOOR + SAMPLE - 0.15, 1.5, "original direct latency", color=INK,
-            fontsize=8.5, ha="right", va="center", alpha=0.8)
-    ax.set_yticks(ypos)
-    ax.set_yticklabels([r[0] for r in rows], fontsize=9.5)
-    ax.set_ylim(-0.95, 2.75)
-    ax.set_xlim(0, 14.8)
-    ax.set_xlabel("end-to-end monitoring latency (ms)")
-    ax.set_title("Monitoring latency budget — trimming the sample head buys back routing headroom")
-    ax.grid(axis="x")
-    ax.legend(frameon=False, fontsize=8.5, loc="upper right")
-    fig.tight_layout()
-    out = os.path.join(HERE, "latency_budget.png")
+    out = os.path.join(ASSETS, "onset_waveform.png")
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)
@@ -377,7 +322,7 @@ def fig_overboost():
     ax.legend(frameon=False, fontsize=9.5, loc="lower right")
     ax.grid(axis="y")
     fig.tight_layout()
-    out = os.path.join(HERE, "overboost_fix.png")
+    out = os.path.join(ASSETS, "overboost_fix.png")
     fig.savefig(out, bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)
@@ -389,5 +334,4 @@ if __name__ == "__main__":
     fig_dependence()
     fig_before_after()
     fig_pak_format()
-    fig_latency_budget()
     fig_overboost()
