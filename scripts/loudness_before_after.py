@@ -7,10 +7,11 @@ onset-aligned 300 ms RMS of every sample, then plots per-note deviation from the
 smooth trend and the note-to-note jumps.
 
 Example:
-  python loudness_before_after.py "...\\Concert Grand YF3\\Notes" --mic Close
+  python scripts/loudness_before_after.py "...\\Concert Grand YF3\\Notes" --mic Close
 """
 import os, sys, re, argparse
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
 from repack import parse_toc, wav_layout, dec24, onset_frame
 import numpy as np, pandas as pd
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
@@ -19,7 +20,6 @@ BLUE, TEAL, AMBER, CORAL, GRAY, INK = "#2563eb", "#0d9488", "#d97706", "#dc2626"
 plt.rcParams.update({"figure.dpi": 150, "savefig.dpi": 150, "font.size": 11, "font.family": "DejaVu Sans",
                      "axes.spines.top": False, "axes.spines.right": False,
                      "axes.titlesize": 12, "axes.titleweight": "bold", "grid.color": "#e2e8f0"})
-HERE = os.path.dirname(os.path.abspath(__file__))
 
 ap = argparse.ArgumentParser(description=__doc__,
                              formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -28,7 +28,7 @@ ap.add_argument("notes_dir", help=r"the instrument's Notes folder "
 ap.add_argument("--mic", default="Close", help="mic-position folder prefix (default Close)")
 ap.add_argument("--before", default=".pak.orig", help="extension of the untouched paks")
 ap.add_argument("--after", default=".pak", help="extension of the processed paks")
-ap.add_argument("--out", default=os.path.join(HERE, "assets", "loudness_before_after.png"))
+ap.add_argument("--out", default=os.path.join(ROOT, "assets", "loudness_before_after.png"))
 ap.add_argument("--label", default=None, help="figure label (default: '<mic> mic, all notes')")
 args = ap.parse_args()
 label = args.label or f"{args.mic} mic, all notes"

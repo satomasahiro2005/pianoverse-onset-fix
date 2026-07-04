@@ -19,7 +19,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, FancyArrowPatch
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 ASSETS = os.path.join(ROOT, "assets")
 

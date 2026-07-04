@@ -7,7 +7,7 @@ param(
   [int]$WinMs = 300,
   [string]$RrFilter = ''      # '' = all round-robins
 )
-if (-not $OutCsv) { $OutCsv = Join-Path $PSScriptRoot 'loudness.csv' }
+if (-not $OutCsv) { $OutCsv = 'loudness.csv' }   # relative to where you run it
 . (Join-Path $PSScriptRoot 'pak.ps1')
 function S24l($d,$i){ $v=[int]$d[$i]+[int]$d[$i+1]*256+[int]$d[$i+2]*65536; if($v -band 0x800000){$v-=0x1000000}; $v }
 

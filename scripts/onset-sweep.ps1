@@ -7,7 +7,7 @@ param(
   [int]$WinMs = 250,
   [string]$RrFilter = 'rr1'   # set '' for all round-robins
 )
-if (-not $OutCsv) { $OutCsv = Join-Path $PSScriptRoot 'onset.csv' }
+if (-not $OutCsv) { $OutCsv = 'onset.csv' }   # relative to where you run it
 . (Join-Path $PSScriptRoot 'pak.ps1')
 
 function S24b($d,$i){ $v=[int]$d[$i] + ([int]$d[$i+1]*256) + ([int]$d[$i+2]*65536); if($v -band 0x800000){ $v=$v-0x1000000 }; $v }

@@ -159,7 +159,7 @@ too slow in PowerShell, so the full pipeline is in numpy):
   attack instead of being cut to the bone.
 - `--fade` (default 0.4 ms): a short fade-in at the cut removes the click from starting
   mid-signal.
-- `--gains note_gains.csv`: applies the per-note volume correction described below.
+- `--gains data/note_gains.csv`: applies the per-note volume correction described below.
 
 ## Volume correction
 
@@ -177,7 +177,7 @@ RMS was measured per sample across the YF3 Close keyboard, every key × 14 veloc
   gain per note corrects most of it; the remaining 40% is velocity-dependent and is left alone.
 - Velocity layers are monotonic, and round-robin imbalance is small (mean 0.16 dB).
 
-`analyze_loudness.py` writes a headroom-safe, attenuation-leaning gain per note to a CSV,
+`scripts/analyze_loudness.py` writes a headroom-safe, attenuation-leaning gain per note to a CSV,
 and `repack.py --gains` applies it. Re-measured across the whole keyboard afterwards, the
 deviation from the smooth trend drops from **σ 2.14 dB to 1.42 dB** and the
 adjacent-semitone jump from a median of **1.45 dB to 0.91 dB** (the velocity-dependent part
@@ -215,8 +215,8 @@ $paks  = Get-ChildItem "$notes\Close *\*.pak" |
          Where-Object Name -notmatch '\.(trim|orig)' | ForEach-Object FullName
 
 # 1. measure loudness (all samples, all round-robins) and build the per-note gain table
-. .\loudness-sweep.ps1 -Paks $paks -OutCsv my_loudness.csv -RrFilter ''
-python analyze_loudness.py --csv my_loudness.csv --out my_gains.csv --label "YF3 Close"
+. .\scripts\loudness-sweep.ps1 -Paks $paks -OutCsv my_loudness.csv -RrFilter ''
+python scripts/analyze_loudness.py --csv my_loudness.csv --out my_gains.csv --label "YF3 Close"
 
 # 2. trim + gain every pak (writes .trim.pak next to the original; nothing is overwritten)
 foreach ($p in $paks) {
@@ -230,7 +230,7 @@ foreach ($p in $paks) {
 }
 
 # 4. verify: keyboard-wide loudness, original vs processed
-python loudness_before_after.py $notes --mic Close
+python scripts/loudness_before_after.py $notes --mic Close
 ```
 
 Notes on the steps:
@@ -239,11 +239,11 @@ Notes on the steps:
   head-trim alone (onset align + cap + fade) and needs no measurement at all.
 - `repack.py` prints a per-pak summary (trim stats, gain range) and self-verifies the
   output container (contiguity, sizes, headers) after writing.
-- Onset delay can be measured the same way with `. .\onset-sweep.ps1 -Paks $paks -OutCsv
+- Onset delay can be measured the same way with `. .\scripts\onset-sweep.ps1 -Paks $paks -OutCsv
   my_onset.csv` before and after (defaults to rr1 only; pass `-RrFilter ''` for all).
 - To revert, delete the processed `.pak` and rename the `.pak.orig` back.
 - If a rename fails with "file in use", something still has the pak open —
-  `find-locker.ps1` shows which process.
+  `scripts\find-locker.ps1` shows which process.
 
 > **Decoding note:** PowerShell's `-shl` truncates to the left operand's type when it is a
 > `[byte]`, so 24-bit PCM must be assembled as
@@ -252,8 +252,9 @@ Notes on the steps:
 ## Other mic positions, other libraries
 
 - **Gain tables don't transfer.** Run the walkthrough once per mic position (and per
-  library) and keep separate tables — the bundled ones are `note_gains.csv` (YF3 Close) and
-  `note_gains_coincident.csv` (YF3 Coincident). The head-trim itself needs no per-mic data.
+  library) and keep separate tables — the bundled ones are `data/note_gains.csv` (YF3 Close)
+  and `data/note_gains_coincident.csv` (YF3 Coincident). The head-trim itself needs no
+  per-mic data.
 - **Mic positions come out onset-aligned.** Each position is trimmed independently to the
   same preroll, which is what you want for playing; see *Intended use* at the top for
   blending.
@@ -278,7 +279,7 @@ round-robins (the bundled CSVs in `data/` are these runs):
   jumps median **1.45 dB → 0.91 dB**.
 
 The Coincident mic, processed the same way with its own gain table
-(`note_gains_coincident.csv`): onset **7.14 ms → 1.43 ms**, volume deviation
+(`data/note_gains_coincident.csv`): onset **7.14 ms → 1.43 ms**, volume deviation
 **σ 2.22 dB → 1.26 dB**, adjacent jumps median **1.68 dB → 0.85 dB**.
 
 ## Benchmark (DiP-Bench)
@@ -302,19 +303,17 @@ pass only flattens the local note-to-note bumps, so it barely moves this single 
 
 ## Repository layout
 
-| File | Purpose |
+| Path | Purpose |
 |---|---|
-| `repack.py` | Main tool: onset detection + trim (with cap) + fade + per-note gain + IKMPAK rebuild (numpy). |
-| `analyze_loudness.py` | Turns a loudness sweep into the per-note gain table (and a figure). |
-| `loudness_before_after.py` | Keyboard-wide before/after loudness verification figure. |
-| `make_figures.py` | Regenerates the README figures from the bundled data. |
-| `verify_close1.py` | Example verification run against the bundled Close 1 data. |
-| `onset-sweep.ps1`, `loudness-sweep.ps1` | Batch onset / loudness measurement to CSV. |
-| `repack.ps1` | Trim-only PowerShell version, kept as a reference implementation. |
-| `pak.ps1` | `.pak` TOC parser, WAV chunk parsing, onset helpers. |
-| `find-locker.ps1` | Shows which process is holding a `.pak` open when a swap fails. |
-| `note_gains.csv`, `note_gains_coincident.csv` | Per-note gain tables from my YF3 run (Close / Coincident). |
-| `data/` | Sample measurement data from the YF3 runs (no audio) — regenerate with the sweeps. |
+| `repack.py` | The tool: onset detection + trim (with cap) + fade + per-note gain + IKMPAK rebuild (numpy). |
+| `scripts/onset-sweep.ps1`, `scripts/loudness-sweep.ps1` | Batch onset / loudness measurement to CSV (`pak.ps1` next to them is their parser library). |
+| `scripts/analyze_loudness.py` | Turns a loudness sweep into the per-note gain table (and a figure). |
+| `scripts/loudness_before_after.py` | Keyboard-wide before/after loudness verification figure. |
+| `scripts/make_figures.py` | Regenerates the README figures from `data/`. |
+| `scripts/verify_close1.py` | Example verification run against the bundled Close 1 data. |
+| `scripts/repack.ps1` | Trim-only PowerShell version, kept as a reference implementation. |
+| `scripts/find-locker.ps1` | Shows which process is holding a `.pak` open when a swap fails. |
+| `data/` | Sample data from my YF3 runs (no audio): the measurement CSVs and the two gain tables (`note_gains.csv` for Close, `note_gains_coincident.csv` for Coincident). |
 | `assets/` | Figures used by this README. |
 
 ## Limitations

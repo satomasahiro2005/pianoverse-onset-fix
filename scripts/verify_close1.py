@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Verify the full Close 1 pipeline (trim+cap+fade+gain): onset and loudness."""
 import os, numpy as np, pandas as pd
-R = os.path.dirname(os.path.abspath(__file__))
+R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 def note_key(n):
@@ -27,7 +27,7 @@ print("after   mean %.2f  sd %.2f  max %.2f ms  (max-trim cap keeps soft notes n
 # ---------- loudness ----------
 allc = pd.read_csv(os.path.join(R, "data", "loudness_close_all.csv"))
 aft = pd.read_csv(os.path.join(R, "data", "loudness_close1_after.csv"))
-gains = pd.read_csv(os.path.join(R, "note_gains.csv")).set_index("Note")["GainDb"]
+gains = pd.read_csv(os.path.join(R, "data", "note_gains.csv")).set_index("Note")["GainDb"]
 allc["pk"] = allc["Note"].map(note_key)
 
 # per-velocity smooth trend over the whole keyboard (unchanged neighbours define it)

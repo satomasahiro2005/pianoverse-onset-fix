@@ -17,7 +17,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
 BLUE, TEAL, AMBER, CORAL, GRAY, INK = "#2563eb", "#0d9488", "#d97706", "#dc2626", "#64748b", "#1f2933"
 plt.rcParams.update({"figure.dpi": 150, "savefig.dpi": 150, "font.size": 11,
@@ -37,7 +37,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", default=os.path.join(DATA, "loudness_close_all.csv"),
                     help="loudness-sweep CSV to analyse (default: the bundled YF3 Close sweep)")
-    ap.add_argument("--out", default=os.path.join(ROOT, "note_gains.csv"),
+    ap.add_argument("--out", default=os.path.join(DATA, "note_gains.csv"),
                     help="per-note gain table to write, for repack.py --gains")
     ap.add_argument("--fig", default=os.path.join(ROOT, "assets", "loudness_variation.png"),
                     help="figure to write ('' to skip)")
