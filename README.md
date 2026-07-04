@@ -10,6 +10,8 @@ Measured on the YF3 Close mic, the head-trim brings the onset delay from **9.3 m
 2.3 ms** (the aligned notes go from σ 9.0 ms to 0.27 ms), and the per-note volume pass cuts
 the systematic note-to-note deviation from **1.49 dB to 0.04 dB**.
 
+**Intended use.** This is aimed at *playing* — trimming the dead head cuts the latency you feel while monitoring. Each mic position is processed independently (its own onset, aligned to the common preroll), so the positions come out onset-aligned rather than keeping their original inter-mic offset (the Coincident mic sits ~1.5 ms behind Close, from the extra distance). If you blend mic positions in a mix and want that spacing back, it's a one-track nudge in your DAW.
+
 > **No Pianoverse sample audio is included in this repository** — only analysis code,
 > measurements, and figures. You need your own licensed copy to use it. This is an
 > interoperability / analysis project and is not affiliated with IK Multimedia; respect the
