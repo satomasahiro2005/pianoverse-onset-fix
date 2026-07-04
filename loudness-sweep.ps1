@@ -3,11 +3,12 @@
 # to characterise volume variation across round-robins / velocity / pitch.
 param(
   [string[]]$Paks,
-  [string]$OutCsv = "C:\Users\masahiro\pianoverse-research\loudness.csv",
+  [string]$OutCsv,
   [int]$WinMs = 300,
   [string]$RrFilter = ''      # '' = all round-robins
 )
-. "C:\Users\masahiro\pianoverse-research\pak.ps1"
+if (-not $OutCsv) { $OutCsv = Join-Path $PSScriptRoot 'loudness.csv' }
+. (Join-Path $PSScriptRoot 'pak.ps1')
 function S24l($d,$i){ $v=[int]$d[$i]+[int]$d[$i+1]*256+[int]$d[$i+2]*65536; if($v -band 0x800000){$v-=0x1000000}; $v }
 
 $full=8388608.0; $sr=48000; $frame=6; $winFrames=[int]($sr*$WinMs/1000)

@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""Keyboard-wide loudness variation, BEFORE (original .orig) vs AFTER (per-note
-gain, live .pak). Onset-aligned 300 ms RMS over all 88 notes x velocities, then
-plot per-note deviation from the smooth trend and the note-to-note jumps."""
-import os, sys, re
+"""Keyboard-wide loudness variation, BEFORE (original) vs AFTER (per-note gain).
+
+Point it at an instrument's Notes folder: for every "<mic> N" subfolder it reads
+"<mic> N<ext>" for both extensions (default: .pak.orig vs the live .pak), takes an
+onset-aligned 300 ms RMS of every sample, then plots per-note deviation from the
+smooth trend and the note-to-note jumps.
+
+Example:
+  python assets/loudness_before_after.py "...\\Concert Grand YF3\\Notes" --mic Close
+"""
+import os, sys, re, argparse
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from repack import parse_toc, wav_layout, dec24, onset_frame
 import numpy as np, pandas as pd
@@ -12,7 +19,19 @@ BLUE, TEAL, AMBER, CORAL, GRAY, INK = "#2563eb", "#0d9488", "#d97706", "#dc2626"
 plt.rcParams.update({"figure.dpi": 150, "savefig.dpi": 150, "font.size": 11, "font.family": "DejaVu Sans",
                      "axes.spines.top": False, "axes.spines.right": False,
                      "axes.titlesize": 12, "axes.titleweight": "bold", "grid.color": "#e2e8f0"})
-NOTES = r"E:\IK Multimedia\Pianoverse\Samples\Pianoverse\Concert Grand YF3\Notes"
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+ap = argparse.ArgumentParser(description=__doc__,
+                             formatter_class=argparse.RawDescriptionHelpFormatter)
+ap.add_argument("notes_dir", help=r"the instrument's Notes folder "
+                r"(e.g. ...\Pianoverse\Samples\Pianoverse\Concert Grand YF3\Notes)")
+ap.add_argument("--mic", default="Close", help="mic-position folder prefix (default Close)")
+ap.add_argument("--before", default=".pak.orig", help="extension of the untouched paks")
+ap.add_argument("--after", default=".pak", help="extension of the processed paks")
+ap.add_argument("--out", default=os.path.join(HERE, "loudness_before_after.png"))
+ap.add_argument("--label", default=None, help="figure label (default: '<mic> mic, all notes')")
+args = ap.parse_args()
+label = args.label or f"{args.mic} mic, all notes"
 
 
 def note_key(n):
@@ -21,10 +40,12 @@ def note_key(n):
     return base[n[0]] + (1 if i == 2 else 0) + 12 * (int(n[i:]) + 1)
 
 
-def measure(src):
+def measure(ext):
     rows = []
-    for n in range(1, 13):
-        pak = os.path.join(NOTES, f"Close {n}", f"Close {n}" + src)
+    for d in sorted(os.listdir(args.notes_dir)):
+        if not (d == args.mic or d.startswith(args.mic + " ")):
+            continue
+        pak = os.path.join(args.notes_dir, d, d + ext)
         if not os.path.exists(pak):
             continue
         ver, cnt, ents = parse_toc(pak)
@@ -44,6 +65,8 @@ def measure(src):
                 if len(w) < int(sr * 0.1):
                     continue
                 rows.append((note, vel, 20 * np.log10(max(np.sqrt(np.mean(w ** 2)), 1) / 8388608.0)))
+    if not rows:
+        raise SystemExit(f"no samples found under {args.notes_dir}\\{args.mic} *\\*{ext}")
     return pd.DataFrame(rows, columns=["Note", "Vel", "RmsDb"])
 
 
@@ -62,7 +85,7 @@ def resid(df):
     return R, per, np.array(adj)
 
 
-before = measure(".pak.orig"); after = measure(".pak")
+before = measure(args.before); after = measure(args.after)
 Rb, perb, adjb = resid(before); Ra, pera, adja = resid(after)
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.2, 4.4))
@@ -80,10 +103,9 @@ ax2.hist(adja, bins=bins, color=TEAL, alpha=0.8, label=f"after gain  median {np.
 ax2.set_xlabel("|adjacent-semitone ΔRMS| (dB)"); ax2.set_ylabel("count")
 ax2.set_title("Note-to-note jumps"); ax2.grid(axis="y"); ax2.legend(frameon=False, fontsize=9.5)
 
-fig.suptitle("Keyboard-wide loudness variation — before vs after the per-note gain  (YF3 Close, all 88 notes)",
+fig.suptitle(f"Keyboard-wide loudness variation — before vs after the per-note gain  ({label})",
              fontsize=12.5, fontweight="bold", y=1.02)
 fig.tight_layout()
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "loudness_before_after.png")
-fig.savefig(out, bbox_inches="tight"); plt.close(fig)
-print("wrote", out, "| before sigma", round(Rb["resid"].std(), 2), "after sigma", round(Ra["resid"].std(), 2),
+fig.savefig(args.out, bbox_inches="tight"); plt.close(fig)
+print("wrote", args.out, "| before sigma", round(Rb["resid"].std(), 2), "after sigma", round(Ra["resid"].std(), 2),
       "| adj median", round(np.median(adjb), 2), "->", round(np.median(adja), 2))

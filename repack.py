@@ -5,6 +5,10 @@ Supersedes repack.ps1 for the full pipeline (PowerShell is too slow to apply a
 whole-sample gain). Lossless container rebuild; only the head is trimmed and an
 optional constant gain / short fade-in are applied to the 24-bit PCM.
 
+Works on any IKMPAK container whose payload is 24-bit PCM WAV; anything else is
+refused rather than silently corrupted. Gains are keyed on the note name parsed
+from each TOC path (basename up to the first '_', e.g. "A3_v100_rr1..." -> A3).
+
 Usage:
   python repack.py IN.pak OUT.pak [--preroll 1.5] [--maxtrim 20] [--fade 0.4]
                    [--gains note_gains.csv] [--anchor -20]
@@ -90,7 +94,7 @@ def repack(in_pak, out_pak, preroll_ms=1.5, max_trim_ms=20.0, fade_ms=0.4,
            gains=None, anchor_db=-20.0, report=None):
     gains = gains or {}
     ver, cnt, entries = parse_toc(in_pak)
-    toc = bytearray(b"IKMPAK") + struct.pack("<II", 2, cnt)
+    toc = bytearray(b"IKMPAK") + struct.pack("<II", ver, cnt)
     pos = []
     for pth, _, _ in entries:
         toc += pth.encode("ascii") + b"\x00"
@@ -104,6 +108,9 @@ def repack(in_pak, out_pak, preroll_ms=1.5, max_trim_ms=20.0, fade_ms=0.4,
             lay = wav_layout(b)
             if lay is None:
                 fout.write(b); meta.append((cur, sz)); cur += sz; continue
+            if lay["bits"] != 24:
+                raise ValueError("%s is %d-bit; only 24-bit PCM is supported "
+                                 "(refusing to write a corrupted pak)" % (pth, lay["bits"]))
             sr, ch = lay["sr"], lay["ch"]
             data = b[lay["data_payload"]:lay["data_payload"] + lay["data_size"]]
             v = dec24(data).astype(np.float64).reshape(-1, ch)
@@ -112,7 +119,7 @@ def repack(in_pak, out_pak, preroll_ms=1.5, max_trim_ms=20.0, fade_ms=0.4,
             pre = int(sr * preroll_ms / 1000); cap = int(sr * max_trim_ms / 1000)
             trim = 0 if on < 0 else max(0, min(on - pre, cap))
             v = v[trim:]
-            note = pth.split("/")[-1].split("_")[0]
+            note = pth.replace("\\", "/").split("/")[-1].split("_")[0]
             gdb = gains.get(note, 0.0)
             if gdb:
                 v *= 10 ** (gdb / 20)

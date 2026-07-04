@@ -51,13 +51,13 @@ function Get-OnsetFrame($buf,$lay,[double]$AnchorDb=-20,[int]$scanMs=400){
 
 function Repack-PakTrimmed {
   param([string]$InPak,[string]$OutPak,[double]$PrerollMs=1.5,[double]$AnchorDb=-20,[int]$ScanMs=400)
-  . "C:\Users\masahiro\pianoverse-research\pak.ps1"
+  . (Join-Path $PSScriptRoot 'pak.ps1')
   $t = Get-PakEntries $InPak
   # build new TOC bytes (paths + placeholder offsets/sizes), same layout/order as input
   $ms=New-Object System.IO.MemoryStream
   $bw=New-Object System.IO.BinaryWriter($ms)
   $bw.Write([Text.Encoding]::ASCII.GetBytes('IKMPAK'))
-  $bw.Write([uint32]2); $bw.Write([uint32]$t.Count)
+  $bw.Write([uint32]$t.Version); $bw.Write([uint32]$t.Count)
   $tocEntryPos=@()
   foreach($e in $t.Entries){
     $bw.Write([Text.Encoding]::ASCII.GetBytes($e.Path)); $bw.Write([byte]0)

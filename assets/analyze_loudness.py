@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""Characterise volume variation across the YF3 Close keyboard.
+"""Characterise per-note volume variation and build a gain table.
 
-Reads ../loudness_close_all.csv (Mic,Note,Vel,RR,PeakDb,RmsDb).
-Separates the *natural* loudness-vs-pitch trend from per-note bumps, and tests
-whether those bumps are consistent across velocities (=> fixable with one gain
-per note, analogous to the per-sample head-trim).
+Reads a loudness-sweep CSV (Mic,Note,Vel,RR,PeakDb,RmsDb from loudness-sweep.ps1),
+separates the *natural* loudness-vs-pitch trend from per-note bumps, tests whether
+those bumps are consistent across velocities (=> fixable with one gain per note),
+and writes a headroom-safe gain table for repack.py --gains.
+
+The defaults reproduce the bundled YF3 Close analysis; point --csv/--out at your
+own sweep to redo it for another mic position or library.
 """
 import os
+import argparse
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -29,7 +33,24 @@ def note_key(n):
 
 
 def main():
-    df = pd.read_csv(os.path.join(ROOT, "loudness_close_all.csv"))
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--csv", default=os.path.join(ROOT, "loudness_close_all.csv"),
+                    help="loudness-sweep CSV to analyse (default: the bundled YF3 Close sweep)")
+    ap.add_argument("--out", default=os.path.join(ROOT, "note_gains.csv"),
+                    help="per-note gain table to write, for repack.py --gains")
+    ap.add_argument("--fig", default=os.path.join(HERE, "loudness_variation.png"),
+                    help="figure to write ('' to skip)")
+    ap.add_argument("--label", default="YF3 Close",
+                    help="label shown in the printout and figure titles")
+    ap.add_argument("--margin", type=float, default=3.0,
+                    help="headroom kept below 0 dBFS when boosting, dB (default 3; "
+                         "smaller lets peaky attacks get too close to clipping)")
+    ap.add_argument("--maxgain", type=float, default=6.0,
+                    help="clamp for the per-note gain, dB (default 6)")
+    a = ap.parse_args()
+
+    df = pd.read_csv(a.csv)
     df["pk"] = df["Note"].map(note_key)
     # average round-robins -> one loudness per (note, vel)
     g = df.groupby(["Note", "pk", "Vel"], as_index=False)["RmsDb"].mean()
@@ -58,7 +79,7 @@ def main():
     explained = 1 - (R.merge(pernote[["Note", "mean"]], on="Note")
                      .eval("resid - mean").std() ** 2) / resid_std ** 2
 
-    print("=== volume variation across YF3 Close keyboard ===")
+    print("=== volume variation across the keyboard (%s) ===" % a.label)
     print(f"samples: {len(df)}   notes: {g['Note'].nunique()}   velocities: {g['Vel'].nunique()}")
     print(f"adjacent-semitone |dRMS|: median {np.median(adj):.2f} dB  90th pct {np.percentile(adj,90):.2f}  max {adj.max():.2f}")
     print(f"residual (note - local trend) std: {resid_std:.2f} dB")
@@ -73,14 +94,16 @@ def main():
     gtab = []
     for _, row in pernote.iterrows():
         note = row["Note"]
-        desired = float(np.clip(-row["mean"], -6, 6))   # pull toward the trend
-        if desired > 0:                                  # boost: clamp to headroom (keep 3 dB margin so peaky notes' attacks don't overshoot)
-            desired = min(desired, -float(peak[note]) - 3.0)
+        desired = float(np.clip(-row["mean"], -a.maxgain, a.maxgain))  # pull toward the trend
+        if desired > 0:   # boost: clamp to headroom so peaky notes' attacks don't overshoot
+            desired = min(desired, -float(peak[note]) - a.margin)
         gtab.append({"Note": note, "GainDb": round(desired, 2)})
-    pd.DataFrame(gtab).to_csv(os.path.join(ROOT, "note_gains.csv"), index=False)
+    pd.DataFrame(gtab).to_csv(a.out, index=False)
     gv = [g["GainDb"] for g in gtab]
-    print(f"\nwrote note_gains.csv ({len(gtab)} notes), gain {min(gv):.2f}..{max(gv):.2f} dB, "
+    print(f"\nwrote {a.out} ({len(gtab)} notes), gain {min(gv):.2f}..{max(gv):.2f} dB, "
           f"mean|g| {np.mean(np.abs(gv)):.2f} dB")
+    if not a.fig:
+        return
 
     # ---- figure ----
     fig, (axc, axb) = plt.subplots(1, 2, figsize=(10.4, 4.3))
@@ -104,12 +127,11 @@ def main():
     axb.grid(axis="y")
 
     fig.suptitle(f"Volume variation — note-to-note σ {resid_std:.2f} dB, "
-                 f"systematic per-note σ {sys_std:.2f} dB  (YF3 Close)",
+                 f"systematic per-note σ {sys_std:.2f} dB  ({a.label})",
                  fontsize=12, fontweight="bold", y=1.02)
     fig.tight_layout()
-    out = os.path.join(HERE, "loudness_variation.png")
-    fig.savefig(out, bbox_inches="tight"); plt.close(fig)
-    print("\nwrote", out)
+    fig.savefig(a.fig, bbox_inches="tight"); plt.close(fig)
+    print("\nwrote", a.fig)
 
 
 if __name__ == "__main__":

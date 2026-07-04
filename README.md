@@ -8,9 +8,15 @@ directly, leaving the plugin, presets, mic mixes and velocity mapping untouched.
 
 Measured on the YF3 Close mic, the head-trim brings the onset delay from **9.3 ms down to
 2.3 ms** (the aligned notes go from σ 9.0 ms to 0.27 ms), and the per-note volume pass cuts
-the systematic note-to-note deviation from **1.49 dB to 0.04 dB**.
+the deviation from the keyboard's smooth loudness trend from **σ 2.14 dB to 1.42 dB**
+(adjacent-semitone jumps: median 1.45 dB → 0.91 dB). Both YF3 mic positions (Close and
+Coincident) have been processed this way.
 
 **Intended use.** This is aimed at *playing* — trimming the dead head cuts the latency you feel while monitoring. Each mic position is processed independently (its own onset, aligned to the common preroll), so the positions come out onset-aligned rather than keeping their original inter-mic offset (the Coincident mic sits ~1.5 ms behind Close, from the extra distance). If you blend mic positions in a mix and want that spacing back, it's a one-track nudge in your DAW.
+
+The bundled CSVs and gain tables are the measurements from my YF3 run, kept as sample
+data. Every one of them can be regenerated on your own copy with the included scripts —
+see the [walkthrough](#walkthrough-processing-your-own-copy).
 
 > **No Pianoverse sample audio is included in this repository** — only analysis code,
 > measurements, and figures. You need your own licensed copy to use it. This is an
@@ -25,8 +31,8 @@ the systematic note-to-note deviation from **1.49 dB to 0.04 dB**.
 - [How the fix works](#how-the-fix-works)
 - [Volume correction](#volume-correction)
 - [Requirements](#requirements)
-- [Usage](#usage)
-- [Applying it to Pianoverse](#applying-it-to-pianoverse)
+- [Walkthrough: processing your own copy](#walkthrough-processing-your-own-copy)
+- [Other mic positions, other libraries](#other-mic-positions-other-libraries)
 - [Results](#results)
 - [Benchmark (DiP-Bench)](#benchmark-dip-bench)
 - [Repository layout](#repository-layout)
@@ -51,7 +57,7 @@ fixes the delay while keeping everything else about the instrument intact.
 ## What the delay actually is
 
 Onset times were measured across the YF3 Close mic for every key and all 14 velocity layers
-(see `onset.csv`).
+(the bundled `onset.csv` is that run).
 
 In the raw waveform, the note simply stays quiet for the first several milliseconds after
 note-on (top: original; bottom: after the head-trim):
@@ -156,7 +162,7 @@ too slow in PowerShell, so the full pipeline is in numpy):
 ## Volume correction
 
 RMS was measured per sample across the YF3 Close keyboard, every key × 14 velocities
-(rr1 + rr2, 2258 samples; `loudness_close_all.csv` via `analyze_loudness.py`):
+(rr1 + rr2, 2258 samples; the bundled `loudness_close_all.csv`):
 
 ![Note-to-note volume variation](assets/loudness_variation.png)
 
@@ -169,66 +175,109 @@ RMS was measured per sample across the YF3 Close keyboard, every key × 14 veloc
   gain per note corrects most of it; the remaining 40% is velocity-dependent and is left alone.
 - Velocity layers are monotonic, and round-robin imbalance is small (mean 0.16 dB).
 
-`analyze_loudness.py` writes a headroom-safe, attenuation-leaning gain per note to
-`note_gains.csv`, and `repack.py --gains` applies it. On Close 1's A notes the gains land
-exactly (ΔRMS ≈ the target), and the per-note deviation drops from σ 1.49 dB to 0.04 dB.
+`analyze_loudness.py` writes a headroom-safe, attenuation-leaning gain per note to a CSV,
+and `repack.py --gains` applies it. Re-measured across the whole keyboard afterwards, the
+deviation from the smooth trend drops from **σ 2.14 dB to 1.42 dB** and the
+adjacent-semitone jump from a median of **1.45 dB to 0.91 dB** (the velocity-dependent part
+is left in on purpose, so it doesn't go to zero):
+
+![Keyboard-wide loudness, before vs after](assets/loudness_before_after.png)
+
+### Headroom: keeping boosts off the ceiling
+
+A gain that matches a note's RMS to its neighbours can still overshoot on the attack — weak
+high notes have little sustain but a peaky hammer transient, so an RMS-matched boost pushes
+that transient toward 0 dBFS. F5 was the worst case: its first-pass gain of +5.7 dB parked
+the attack at −0.8 dBFS. Boosts are therefore clamped so the post-gain peak stays 3 dB below
+full scale (`--margin`, default 3). F5 lands at +3.49 dB with the attack at −3.0 dBFS and the
+sustain still level with its neighbours:
+
+![Over-boost fix](assets/overboost_fix.png)
 
 ## Requirements
 
-- Python 3 with `numpy`, `pandas`, and `matplotlib` (for `repack.py` and the figures).
+- Python 3 with `numpy`, `pandas`, and `matplotlib` (for `repack.py` and the analysis).
 - PowerShell (for the measurement sweeps).
 - A licensed Pianoverse installation — the sample `.pak` files are not included here.
 
-## Usage
+## Walkthrough: processing your own copy
 
-Measure onset and loudness (PowerShell):
+Everything below runs in PowerShell from the repository root. The bundled CSVs came from
+this exact procedure on the YF3; the same steps work for any Pianoverse model and mic
+position — only the paths change.
 
 ```powershell
-. .\onset-sweep.ps1    -Paks @("...\Close 1\Close 1.pak") -RrFilter ''
-. .\loudness-sweep.ps1 -Paks @("...\Close 1\Close 1.pak") -RrFilter ''
+# where your instrument's per-mic pak folders live
+$notes = "E:\IK Multimedia\Pianoverse\Samples\Pianoverse\Concert Grand YF3\Notes"
+$paks  = Get-ChildItem "$notes\Close *\*.pak" |
+         Where-Object Name -notmatch '\.(trim|orig)' | ForEach-Object FullName
+
+# 1. measure loudness (all samples, all round-robins) and build the per-note gain table
+. .\loudness-sweep.ps1 -Paks $paks -OutCsv my_loudness.csv -RrFilter ''
+python assets/analyze_loudness.py --csv my_loudness.csv --out my_gains.csv --label "YF3 Close"
+
+# 2. trim + gain every pak (writes .trim.pak next to the original; nothing is overwritten)
+foreach ($p in $paks) {
+  python repack.py $p ($p -replace '\.pak$', '.trim.pak') --gains my_gains.csv
+}
+
+# 3. swap in — close Pianoverse / your DAW first so the .pak file locks are released
+foreach ($p in $paks) {
+  Rename-Item $p ($p + '.orig')                        # keep the original
+  Rename-Item ($p -replace '\.pak$', '.trim.pak') $p
+}
+
+# 4. verify: keyboard-wide loudness, original vs processed
+python assets/loudness_before_after.py $notes --mic Close
 ```
 
-Generate the figures and the per-note gain table:
+Notes on the steps:
 
-```bash
-python assets/analyze_loudness.py
-python assets/make_figures.py
-```
-
-Process a `.pak` — trim + cap + fade + gain, written to a new file so the original is left
-in place:
-
-```bash
-python repack.py "...\Close 1\Close 1.pak" "...\Close 1\Close 1.trim.pak" \
-       --preroll 1.5 --maxtrim 20 --fade 0.4 --gains note_gains.csv
-```
+- Step 1 is only needed for the volume pass. `repack.py` without `--gains` does the
+  head-trim alone (onset align + cap + fade) and needs no measurement at all.
+- `repack.py` prints a per-pak summary (trim stats, gain range) and self-verifies the
+  output container (contiguity, sizes, headers) after writing.
+- Onset delay can be measured the same way with `. .\onset-sweep.ps1 -Paks $paks -OutCsv
+  my_onset.csv` before and after (defaults to rr1 only; pass `-RrFilter ''` for all).
+- To revert, delete the processed `.pak` and rename the `.pak.orig` back.
+- If a rename fails with "file in use", something still has the pak open —
+  `find-locker.ps1` shows which process.
 
 > **Decoding note:** PowerShell's `-shl` truncates to the left operand's type when it is a
 > `[byte]`, so 24-bit PCM must be assembled as
 > `[int]$b[$i] + [int]$b[$i+1]*256 + [int]$b[$i+2]*65536` (cast to `int` before shifting).
 
-## Applying it to Pianoverse
+## Other mic positions, other libraries
 
-Once you have a processed `Close N.trim.pak`, swap it in (keep the backup):
-
-1. Close Pianoverse / your DAW so the `.pak` file lock is released.
-2. Rename the original aside: `Close 1.pak` → `Close 1.pak.orig`.
-3. Put the processed file in place: `Close 1.trim.pak` → `Close 1.pak`.
-4. Open Pianoverse and check. To revert, restore the `.orig`.
+- **Gain tables don't transfer.** Run the walkthrough once per mic position (and per
+  library) and keep separate tables — the bundled ones are `note_gains.csv` (YF3 Close) and
+  `note_gains_coincident.csv` (YF3 Coincident). The head-trim itself needs no per-mic data.
+- **Mic positions come out onset-aligned.** Each position is trimmed independently to the
+  same preroll, which is what you want for playing; see *Intended use* at the top for
+  blending.
+- **Any IKMPAK container should work.** `repack.py` assumes only the container layout plus
+  24-bit PCM WAV inside, and refuses anything that isn't 24-bit instead of corrupting it.
+  The gain pass additionally expects IK's TOC naming (`<note>_v<vel>_..._rr<n>`), which is
+  also what the sweeps parse.
+- **Note names sit one octave below the keyboard.** The lowest key is `A-1` in the data,
+  and keyboard F6 is data `F5` — worth knowing before hand-editing a gain CSV.
 
 ## Results
 
-Measured before and after on YF3 Close 1 (every octave's A × 14 velocities × round-robins,
-214 samples; `verify_close1.py`):
+Measured before and after on the full YF3 Close set, every key × 14 velocity layers ×
+round-robins (the bundled `onset*.csv` / `loudness*.csv` are these runs):
 
 ![Before / after head-trim](assets/onset_before_after.png)
 
-- Onset delay: mean **9.3 ms → 2.3 ms**.
-- Aligned notes (207 of 214): **σ 9.0 ms → 0.27 ms**, converged on the 1.5 ms preroll.
-- The 7 softest notes (A5 v9, soft A-1) keep a natural late onset thanks to the cap.
-- Per-note volume deviation: **1.49 dB → 0.04 dB**.
+- Onset delay: mean **9.3 ms → 2.3 ms**; the aligned notes converge on the 1.5 ms preroll
+  at **σ 0.27 ms** (from σ 9.0 ms).
+- The softest notes keep a natural late onset thanks to the `--maxtrim` cap.
+- Volume: deviation from the keyboard trend **σ 2.14 dB → 1.42 dB**, adjacent-semitone
+  jumps median **1.45 dB → 0.91 dB**.
 
-The same pipeline has been applied to the full YF3 Close set (Close 1–12).
+The Coincident mic, processed the same way with its own gain table
+(`note_gains_coincident.csv`): onset **7.14 ms → 1.43 ms**, volume deviation
+**σ 2.22 dB → 1.26 dB**, adjacent jumps median **1.68 dB → 0.85 dB**.
 
 ## Benchmark (DiP-Bench)
 
@@ -257,15 +306,18 @@ pass only flattens the local note-to-note bumps, so it barely moves this single 
 | `repack.ps1` | Trim-only PowerShell version, kept as a reference implementation. |
 | `pak.ps1` | `.pak` TOC parser, WAV chunk parsing, onset helpers. |
 | `onset-sweep.ps1`, `loudness-sweep.ps1` | Batch onset / loudness measurement to CSV. |
-| `analyze_loudness.py` | Volume analysis and the `note_gains.csv` gain table. |
-| `assets/make_figures.py` | Generates the figures from the measured CSVs. |
-| `verify_close1.py` | Re-measures onset and loudness before vs after. |
-| `*.csv` | Measurements and the per-note gains (no audio). |
+| `assets/analyze_loudness.py` | Turns a loudness sweep into the per-note gain table (and a figure). |
+| `assets/loudness_before_after.py` | Keyboard-wide before/after loudness verification figure. |
+| `assets/make_figures.py` | Regenerates the README figures from the bundled CSVs. |
+| `verify_close1.py` | Example verification run against the bundled Close 1 CSVs. |
+| `find-locker.ps1` | Shows which process is holding a `.pak` open when a swap fails. |
+| `note_gains.csv`, `note_gains_coincident.csv` | Per-note gain tables from my YF3 run (Close / Coincident). |
+| other `*.csv` | Sample measurement data from the YF3 runs (no audio) — regenerate with the sweeps. |
 
 ## Limitations
 
-- **Coincident mic** is not done yet — it needs its own loudness analysis and gain table
-  (the gains here are Close-specific).
+- The payload must be 24-bit PCM WAV — `repack.py` enforces this and refuses anything else.
+  The measurement sweeps additionally assume 48 kHz stereo, which is what Pianoverse ships.
 - **Runtime loading** is argued safe from the format (no checksum, path-based lookup) and
   works in practice, but you should still verify after swapping a file in.
 - The softest, highest notes are only partially aligned by design (the `--maxtrim` cap

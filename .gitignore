@@ -11,3 +11,7 @@ __pycache__/
 # scratch
 *.tmp
 test_out.*
+
+# your own measurement runs (walkthrough output) / local backups
+my_*.csv
+*.old.csv
