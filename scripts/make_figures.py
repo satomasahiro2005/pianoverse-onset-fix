@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Generate the research figures (PNG) for the Pianoverse onset study.
 
-Data sources (produced by the PowerShell tools):
-  data/onset.csv                 onset sweep over YF3 Close, 88 keys x 14 vel (rr1)
-  data/onset_close1_before.csv   onset(-20dB) per sample, Close 1, original pak
-  data/onset_close1_after.csv    onset(-20dB) per sample, Close 1, head-trimmed pak
-  data/waveform_a3.csv           optional raw A3 excerpt (sample audio, so not in the
+Data sources (produced by the PowerShell tools), bundled YF3 reference set:
+  data/yf3/onset_close.csv           onset sweep over YF3 Close, 88 keys x 14 vel (rr1)
+  data/yf3/onset_close1_before.csv   onset(-20dB) per sample, Close 1, original pak
+  data/yf3/onset_close1_after.csv    onset(-20dB) per sample, Close 1, head-trimmed pak
+  data/yf3/waveform_a3.csv           optional raw A3 excerpt (sample audio, so not in the
                                  repo); the waveform figure is skipped if it's absent
 
 Figure labels are English on purpose (the embedded matplotlib font has no CJK
@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, FancyArrowPatch
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA = os.path.join(ROOT, "data")
+DATA = os.path.join(ROOT, "data", "yf3")
 ASSETS = os.path.join(ROOT, "assets")
 
 BLUE, TEAL, AMBER, CORAL, GRAY, INK = "#2563eb", "#0d9488", "#d97706", "#dc2626", "#64748b", "#1f2933"
@@ -91,7 +91,7 @@ def fig_structure():
 
 
 def fig_dependence():
-    df = pd.read_csv(os.path.join(DATA, "onset.csv"))
+    df = pd.read_csv(os.path.join(DATA, "onset_close.csv"))
     df["onset"] = pd.to_numeric(df["T_m20ms"], errors="coerce")
     df = df.dropna(subset=["onset"])
     fig, (axv, axp) = plt.subplots(1, 2, figsize=(10.2, 4.3))

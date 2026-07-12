@@ -35,10 +35,11 @@ def note_key(n):
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--csv", default=os.path.join(DATA, "loudness_close_all.csv"),
+    ap.add_argument("--csv", default=os.path.join(DATA, "yf3", "loudness_close_all.csv"),
                     help="loudness-sweep CSV to analyse (default: the bundled YF3 Close sweep)")
     ap.add_argument("--out", default=os.path.join(DATA, "note_gains.csv"),
-                    help="per-note gain table to write, for repack.py --gains")
+                    help="per-note gain table to write, for repack.py --gains "
+                         "(put your own model's runs under data/<model>/)")
     ap.add_argument("--fig", default=os.path.join(ROOT, "assets", "loudness_variation.png"),
                     help="figure to write ('' to skip)")
     ap.add_argument("--label", default="YF3 Close",

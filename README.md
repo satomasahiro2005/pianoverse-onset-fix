@@ -16,9 +16,11 @@ Coincident) have been processed this way.
 
 **Intended use.** This is aimed at *playing* — trimming the dead head cuts the latency you feel while monitoring. Each mic position is processed independently (its own onset, aligned to the common preroll), so the positions come out onset-aligned rather than keeping their original inter-mic offset (the Coincident mic sits ~1.5 ms behind Close, from the extra distance). If you blend mic positions in a mix and want that spacing back, it's a one-track nudge in your DAW.
 
-The bundled measurement CSVs (`data/`) and gain tables are from my YF3 run, kept as sample
-data. Every one of them can be regenerated on your own copy with the included scripts —
-see the [walkthrough](#walkthrough-processing-your-own-copy).
+The bundled measurement CSVs and gain tables live in `data/yf3/` — they are from my YF3 run.
+If you own the YF3 you can use them as-is (e.g. `repack.py --gains data/yf3/note_gains_close.csv`);
+for any other piano they are just a worked example, and every one of them can be regenerated on
+your own copy with the included scripts — see the [walkthrough](#walkthrough-processing-your-own-copy).
+Put your own runs under `data/<your-model>/` (only `data/yf3/` is tracked; other folders are gitignored).
 
 > **No Pianoverse sample audio is included in this repository** — only analysis code,
 > measurements, and figures. You need your own licensed copy to use it. This is an
@@ -59,7 +61,7 @@ fixes the delay while keeping everything else about the instrument intact.
 ## What the delay actually is
 
 Onset times were measured across the YF3 Close mic for every key and all 14 velocity layers
-(the bundled `data/onset.csv` is that run).
+(the bundled `data/yf3/onset_close.csv` is that run).
 
 In the raw waveform, the note simply stays quiet for the first several milliseconds after
 note-on (top: original; bottom: after the head-trim):
@@ -159,12 +161,12 @@ too slow in PowerShell, so the full pipeline is in numpy):
   attack instead of being cut to the bone.
 - `--fade` (default 0.4 ms): a short fade-in at the cut removes the click from starting
   mid-signal.
-- `--gains data/note_gains.csv`: applies the per-note volume correction described below.
+- `--gains data/yf3/note_gains_close.csv`: applies the per-note volume correction described below.
 
 ## Volume correction
 
 RMS was measured per sample across the YF3 Close keyboard, every key × 14 velocities
-(rr1 + rr2, 2258 samples; the bundled `data/loudness_close_all.csv`):
+(rr1 + rr2, 2258 samples; the bundled `data/yf3/loudness_close_all.csv`):
 
 ![Note-to-note volume variation](assets/loudness_variation.png)
 
@@ -209,18 +211,20 @@ this exact procedure on the YF3; the same steps work for any Pianoverse model an
 position — only the paths change.
 
 ```powershell
-# where your instrument's per-mic pak folders live
+# where your instrument's per-mic pak folders live, and where your own tables go
 $notes = "E:\IK Multimedia\Pianoverse\Samples\Pianoverse\Concert Grand YF3\Notes"
+$out   = "data\yf3-close"    # data\<model-mic>\ ; gitignored unless it's data\yf3\
+New-Item -ItemType Directory -Force $out | Out-Null
 $paks  = Get-ChildItem "$notes\Close *\*.pak" |
          Where-Object Name -notmatch '\.(trim|orig)' | ForEach-Object FullName
 
 # 1. measure loudness (all samples, all round-robins) and build the per-note gain table
-. .\scripts\loudness-sweep.ps1 -Paks $paks -OutCsv my_loudness.csv -RrFilter ''
-python scripts/analyze_loudness.py --csv my_loudness.csv --out my_gains.csv --label "YF3 Close"
+. .\scripts\loudness-sweep.ps1 -Paks $paks -OutCsv "$out\loudness.csv" -RrFilter ''
+python scripts/analyze_loudness.py --csv "$out\loudness.csv" --out "$out\note_gains.csv" --label "YF3 Close"
 
 # 2. trim + gain every pak (writes .trim.pak next to the original; nothing is overwritten)
 foreach ($p in $paks) {
-  python repack.py $p ($p -replace '\.pak$', '.trim.pak') --gains my_gains.csv
+  python repack.py $p ($p -replace '\.pak$', '.trim.pak') --gains "$out\note_gains.csv"
 }
 
 # 3. swap in — close Pianoverse / your DAW first so the .pak file locks are released
@@ -240,7 +244,7 @@ Notes on the steps:
 - `repack.py` prints a per-pak summary (trim stats, gain range) and self-verifies the
   output container (contiguity, sizes, headers) after writing.
 - Onset delay can be measured the same way with `. .\scripts\onset-sweep.ps1 -Paks $paks -OutCsv
-  my_onset.csv` before and after (defaults to rr1 only; pass `-RrFilter ''` for all).
+  "$out\onset.csv"` before and after (defaults to rr1 only; pass `-RrFilter ''` for all).
 - To revert, delete the processed `.pak` and rename the `.pak.orig` back.
 - If a rename fails with "file in use", something still has the pak open —
   `scripts\find-locker.ps1` shows which process.
@@ -252,8 +256,8 @@ Notes on the steps:
 ## Other mic positions, other libraries
 
 - **Gain tables don't transfer.** Run the walkthrough once per mic position (and per
-  library) and keep separate tables — the bundled ones are `data/note_gains.csv` (YF3 Close)
-  and `data/note_gains_coincident.csv` (YF3 Coincident). The head-trim itself needs no
+  library) and keep separate tables — the bundled ones are `data/yf3/note_gains_close.csv` (YF3 Close)
+  and `data/yf3/note_gains_coincident.csv` (YF3 Coincident). The head-trim itself needs no
   per-mic data.
 - **Mic positions come out onset-aligned.** Each position is trimmed independently to the
   same preroll, which is what you want for playing; see *Intended use* at the top for
@@ -268,7 +272,7 @@ Notes on the steps:
 ## Results
 
 Measured before and after on the full YF3 Close set, every key × 14 velocity layers ×
-round-robins (the bundled CSVs in `data/` are these runs):
+round-robins (the bundled CSVs in `data/yf3/` are these runs):
 
 ![Before / after head-trim](assets/onset_before_after.png)
 
@@ -279,7 +283,7 @@ round-robins (the bundled CSVs in `data/` are these runs):
   jumps median **1.45 dB → 0.91 dB**.
 
 The Coincident mic, processed the same way with its own gain table
-(`data/note_gains_coincident.csv`): onset **7.14 ms → 1.43 ms**, volume deviation
+(`data/yf3/note_gains_coincident.csv`): onset **7.14 ms → 1.43 ms**, volume deviation
 **σ 2.22 dB → 1.26 dB**, adjacent jumps median **1.68 dB → 0.85 dB**.
 
 ## Benchmark (DiP-Bench)
@@ -309,11 +313,12 @@ pass only flattens the local note-to-note bumps, so it barely moves this single 
 | `scripts/onset-sweep.ps1`, `scripts/loudness-sweep.ps1` | Batch onset / loudness measurement to CSV (`pak.ps1` next to them is their parser library). |
 | `scripts/analyze_loudness.py` | Turns a loudness sweep into the per-note gain table (and a figure). |
 | `scripts/loudness_before_after.py` | Keyboard-wide before/after loudness verification figure. |
-| `scripts/make_figures.py` | Regenerates the README figures from `data/`. |
+| `scripts/make_figures.py` | Regenerates the README figures from `data/yf3/`. |
 | `scripts/verify_close1.py` | Example verification run against the bundled Close 1 data. |
 | `scripts/repack.ps1` | Trim-only PowerShell version, kept as a reference implementation. |
 | `scripts/find-locker.ps1` | Shows which process is holding a `.pak` open when a swap fails. |
-| `data/` | Sample data from my YF3 runs (no audio): the measurement CSVs and the two gain tables (`note_gains.csv` for Close, `note_gains_coincident.csv` for Coincident). |
+| `data/yf3/` | Bundled YF3 runs (no audio): the measurement CSVs and the two gain tables (`note_gains_close.csv` for Close, `note_gains_coincident.csv` for Coincident). Directly usable if you own the YF3; a worked example otherwise. |
+| `data/<model>/` | Your own runs go here (gitignored). See the walkthrough. |
 | `assets/` | Figures used by this README. |
 
 ## Limitations

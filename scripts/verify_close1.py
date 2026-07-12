@@ -15,8 +15,8 @@ def num(s):
 
 
 # ---------- onset ----------
-b = pd.read_csv(os.path.join(R, "data", "onset_close1_before.csv"))
-a = pd.read_csv(os.path.join(R, "data", "onset_close1_after.csv"))
+b = pd.read_csv(os.path.join(R, "data", "yf3", "onset_close1_before.csv"))
+a = pd.read_csv(os.path.join(R, "data", "yf3", "onset_close1_after.csv"))
 b["o"] = num(b["T_m20ms"]); a["o"] = num(a["T_m20ms"])
 m = b[["Name", "o"]].merge(a[["Name", "o"]], on="Name", suffixes=("_b", "_a")).dropna()
 print("=== ONSET (Close 1, %d samples) ===" % len(m))
@@ -25,9 +25,9 @@ print("after   mean %.2f  sd %.2f  max %.2f ms  (max-trim cap keeps soft notes n
       % (m.o_a.mean(), m.o_a.std(), m.o_a.max()))
 
 # ---------- loudness ----------
-allc = pd.read_csv(os.path.join(R, "data", "loudness_close_all.csv"))
-aft = pd.read_csv(os.path.join(R, "data", "loudness_close1_after.csv"))
-gains = pd.read_csv(os.path.join(R, "data", "note_gains.csv")).set_index("Note")["GainDb"]
+allc = pd.read_csv(os.path.join(R, "data", "yf3", "loudness_close_all.csv"))
+aft = pd.read_csv(os.path.join(R, "data", "yf3", "loudness_close1_after.csv"))
+gains = pd.read_csv(os.path.join(R, "data", "yf3", "note_gains_close.csv")).set_index("Note")["GainDb"]
 allc["pk"] = allc["Note"].map(note_key)
 
 # per-velocity smooth trend over the whole keyboard (unchanged neighbours define it)

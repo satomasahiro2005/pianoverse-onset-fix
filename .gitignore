@@ -15,3 +15,9 @@ test_out.*
 # your own measurement runs (walkthrough output) / local backups
 my_*.csv
 *.old.csv
+
+# data/ is your workspace: one folder per model/mic. Only the bundled YF3
+# reference set (data/yf3/) and the README are tracked; your own runs are not.
+/data/*
+!/data/yf3/
+!/data/README.md
