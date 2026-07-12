@@ -15,6 +15,13 @@ frame-0 libraries (YF3: no pad, unchanged) and silence-padded ones (newer
 uprights: tens-to-hundreds of ms of dead air, longest at soft velocities), which
 would otherwise stall at the cap and keep most of the pad.
 
+Why dropping the pad is safe: the engine (IK's ST4S/SampleTank core) appears to
+strip leading silence at load rather than seek to a stored sample-start offset --
+inferred from behaviour (padded libraries play with no added latency, and
+pre-trimming the pad doesn't desync the note). So removing the pad here just does
+earlier what the engine already does; there is no stored offset to fall out of
+sync. See the README ("How the engine treats the sample start").
+
 Usage:
   python repack.py IN.pak OUT.pak [--preroll 1.5] [--maxtrim 20] [--fade 0.4]
                    [--gains note_gains.csv] [--anchor -20]

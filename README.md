@@ -269,6 +269,31 @@ Notes on the steps:
 - **Note names sit one octave below the keyboard.** The lowest key is `A-1` in the data,
   and keyboard F6 is data `F5` — worth knowing before hand-editing a gain CSV.
 
+### How the engine treats the sample start
+
+Pianoverse runs on IK's ST4S (SampleTank) sampler core. From its playback
+behaviour — not from the encrypted presets, which this project never reads — the
+engine looks like it **strips leading silence from each sample at load** rather
+than seeking to a stored sample-start offset. Two things point that way: some
+libraries ship samples with a long silent pad at the head (plainly visible in the
+open `.pak`) yet play with no added latency, and pre-trimming that pad in the
+`.pak` doesn't shift the note the way a fixed stored offset would.
+
+That is what splits the libraries this tool sees into two kinds:
+
+- **Frame-0 libraries (e.g. YF3).** No silent pad — the head is a ~-40 dBFS
+  touch/mechanical noise lead-in from frame 0. The engine's silence strip removes
+  next to nothing, so those ~8 ms of noise play; that is exactly the delay this
+  tool trims away, and trimming is the real win here.
+- **Silence-padded libraries (some newer uprights).** A long, velocity-dependent
+  stretch of digital silence precedes the tone (tens to a few hundred ms, longest
+  at soft velocities). The engine already discards it at load, so they play tight
+  out of the box. Running the tool is still *safe* — trimming dead air just does
+  earlier what the engine does, and there is no stored offset to desync — but it
+  must drop the **whole** pad, which is why `repack.py` skips leading true-silence
+  in full and applies the `--maxtrim` cap only to real signal past it. Verify by
+  ear after swapping, since the engine re-runs its own silence strip at load.
+
 ## Results
 
 Measured before and after on the full YF3 Close set, every key × 14 velocity layers ×
