@@ -9,6 +9,12 @@ Works on any IKMPAK container whose payload is 24-bit PCM WAV; anything else is
 refused rather than silently corrupted. Gains are keyed on the note name parsed
 from each TOC path (basename up to the first '_', e.g. "A3_v100_rr1..." -> A3).
 
+Leading digital-silence pads are always dropped in full; the --maxtrim cap only
+limits how far into real signal past the pad we cut. That makes it work on both
+frame-0 libraries (YF3: no pad, unchanged) and silence-padded ones (newer
+uprights: tens-to-hundreds of ms of dead air, longest at soft velocities), which
+would otherwise stall at the cap and keep most of the pad.
+
 Usage:
   python repack.py IN.pak OUT.pak [--preroll 1.5] [--maxtrim 20] [--fade 0.4]
                    [--gains note_gains.csv] [--anchor -20]
@@ -67,7 +73,11 @@ def enc24(v):
     return out.tobytes()
 
 
-def onset_frame(maxch, sr, anchor_db=-20.0, scan_ms=400, step=12):
+def onset_frame(maxch, sr, anchor_db=-20.0, scan_ms=700, step=12):
+    # scan_ms is generous (700) so late onsets survive: silence-padded libraries
+    # push the tone hundreds of ms in (soft velocities on newer uprights reach
+    # ~430 ms). A frame-0 library like YF3 peaks early, so the wider window
+    # changes nothing there.
     n = min(len(maxch), int(sr * scan_ms / 1000))
     nb = n // step
     if nb < 4:
@@ -79,6 +89,34 @@ def onset_frame(maxch, sr, anchor_db=-20.0, scan_ms=400, step=12):
     thr = peak * (10 ** (anchor_db / 20))
     hits = np.nonzero(env >= thr)[0]
     return int(hits[0] * step) if len(hits) else -1
+
+
+def lead_silence(maxch, onset, floor_margin_db=12.0):
+    """Frames of leading near-silence (a true digital-silence pad) before the
+    note's content begins, bounded by the detected onset.
+
+    Newer, silence-padded libraries put a long stretch of ~digital silence at
+    the head -- longest at soft velocities (tens to a few hundred ms) -- before
+    the note speaks. That pad is dead air, not a slow attack, so it should be
+    dropped in full regardless of the max-trim cap; the cap only exists to
+    protect real, slowly-developing signal. This finds where the signal first
+    rises a set margin above the pad floor. Returns 0 for a frame-0 library
+    like YF3 (its -40 dB touch-noise lead-in sits above the floor from the
+    start), so their behaviour is unchanged.
+    """
+    if onset <= 0:
+        return 0
+    head = maxch[:onset]
+    if len(head) == 0:
+        return 0
+    floor = np.percentile(head, 20)               # the pad's noise floor
+    thr = max(floor * (10 ** (floor_margin_db / 20)), 8.0)
+    # Boundary = start of the contiguous above-threshold run that leads into the
+    # onset, i.e. the last silent frame before the note's content. Taking the
+    # last sub-threshold frame (not the first super-threshold one) ignores stray
+    # low-level ticks inside the pad, which would otherwise end the pad early.
+    below = np.nonzero(head <= thr)[0]
+    return int(below[-1] + 1) if len(below) else 0
 
 
 def load_gains(path):
@@ -117,7 +155,14 @@ def repack(in_pak, out_pak, preroll_ms=1.5, max_trim_ms=20.0, fade_ms=0.4,
             maxch = np.abs(v).max(axis=1)
             on = onset_frame(maxch, sr, anchor_db)
             pre = int(sr * preroll_ms / 1000); cap = int(sr * max_trim_ms / 1000)
-            trim = 0 if on < 0 else max(0, min(on - pre, cap))
+            # Always drop the leading true-silence pad; the max-trim cap only
+            # limits how far we cut into real signal past it. On a frame-0
+            # library the pad is 0, so this is exactly the old min(on-pre, cap).
+            if on < 0:
+                trim = 0
+            else:
+                sil = lead_silence(maxch, on)
+                trim = max(0, min(on - pre, sil + cap))
             v = v[trim:]
             note = pth.replace("\\", "/").split("/")[-1].split("_")[0]
             gdb = gains.get(note, 0.0)
@@ -165,8 +210,12 @@ def _read(f, off, sz):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("in_pak"); ap.add_argument("out_pak")
-    ap.add_argument("--preroll", type=float, default=1.5)
-    ap.add_argument("--maxtrim", type=float, default=20.0)
+    ap.add_argument("--preroll", type=float, default=1.5,
+                    help="silence left before the onset after trimming, ms")
+    ap.add_argument("--maxtrim", type=float, default=20.0,
+                    help="cap on how far into real signal past any leading "
+                         "silence pad to trim, ms (the pad itself is always "
+                         "dropped in full); protects slow soft-note attacks")
     ap.add_argument("--fade", type=float, default=0.4)
     ap.add_argument("--gains", default=None)
     ap.add_argument("--anchor", type=float, default=-20.0)
